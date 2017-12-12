@@ -140,6 +140,30 @@ void GetDiscount_Hook(Actor * customer, Actor * merchant, float result[4])
 	return GetDiscount(customer, merchant, result);
 }
 
+//using _RegisterScriptFunction = UInt32(*)(void * pObj, ScriptFunctor * pFunctor, void * arg2, void * arg3);
+//RelocAddr<_RegisterScriptFunction>	RegisterScriptFunction(0x1854CB0);
+//_RegisterScriptFunction				RegisterScriptFunction_Original = nullptr;
+//bool RegisterScriptFunction_Hook(void * pObj, ScriptFunctor * pFunctor, void * arg2, void * arg3)
+//{
+//	static FILE * pFile = nullptr;// = fopen_s("ScriptDump.txt", "w");
+//	if (!pFile)
+//	{
+//		errno_t err;
+//		err = fopen_s(&pFile, "ScriptDump.txt", "w+");
+//	}
+//	if (pFile != nullptr)
+//	{
+//		//_MESSAGE("LLLLLLLL");
+//		pFunctor->WriteDump(pFile);	
+//		fwrite("\n", sizeof(char), 1, pFile);
+//	}
+//	_MESSAGE("(%08X) ==> %s", static_cast<uint32_t>((uintptr_t)(pFunctor->functor) - RelocationManager::s_baseAddr), pFunctor->fnName);
+//	if (!strcmp("StartDefaultDialog", pFunctor->fnName) && pFile != nullptr)
+//	{
+//		fclose(pFile);
+//	}
+//	return RegisterScriptFunction_Original(pObj, pFunctor, arg2, arg3);
+//}
 
 void Hooks_Commit(void)
 {
@@ -196,6 +220,30 @@ void Hooks_Commit(void)
 
 		g_branchTrampoline.Write5Branch(CalcGoodValue.GetUIntPtr(), (uintptr_t)CalcGoodValue_Hook);
 	}
+
+	//{
+	//	struct RegisterScriptFunction_Code : Xbyak::CodeGenerator {
+	//		RegisterScriptFunction_Code(void * buf) : Xbyak::CodeGenerator(4096, buf)
+	//		{
+	//			Xbyak::Label retnLabel;
+	//			//mov     [rsp+20h], r9b
+	//			mov(ptr[rsp + 0x8], rbx);
+
+	//			jmp(ptr[rip + retnLabel]);
+
+	//			L(retnLabel);
+	//			dq(RegisterScriptFunction.GetUIntPtr() + 5);
+	//		}
+	//	};
+
+	//	void * codeBuf = g_localTrampoline.StartAlloc();
+	//	RegisterScriptFunction_Code code(codeBuf);
+	//	g_localTrampoline.EndAlloc(code.getCurr());
+
+	//	RegisterScriptFunction_Original = (_RegisterScriptFunction)codeBuf;
+
+	//	g_branchTrampoline.Write5Branch(RegisterScriptFunction.GetUIntPtr(), (uintptr_t)RegisterScriptFunction_Hook);
+	//}
 }
 
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD  ul_reason_for_call, LPVOID lpReserved)
@@ -228,7 +276,16 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD  ul_reason_for_call, LPVOID lpReser
 			uintptr_t location = RVAScan<uintptr_t>("8B D9 C1 EB 10 83 EA 3D 0F 84 0F 06 00 00", -0x36).GetUIntPtr();
 			g_characterManager = ReadOffsetData(location + 0x495, 3, 7) - RelocationManager::s_baseAddr;
 
-			location = RVAScan<uintptr_t>("48 6B 0D ? ? ? ? ? 4C 8B 35 ? ? ? ? 48 8B FA").GetUIntPtr();
+
+			try //before v3.0.158.595
+			{
+				location = RVAScan<uintptr_t>("48 6B 0D ? ? ? ? ? 4C 8B 35 ? ? ? ? 48 8B FA").GetUIntPtr(); //48 6B 0D ? ? ? ? ? 48 8B 35 ? ? ? ?
+			}
+			catch (const no_result_exception & exceptioin)
+			{
+				location = RVAScan<uintptr_t>("48 6B 0D ? ? ? ? ? 48 8B 35 ? ? ? ?").GetUIntPtr();
+			}
+
 			_MESSAGE("(%016I64X) patched sucessfully...", location - RelocationManager::s_baseAddr);
 
 			pGameDataOffset = reinterpret_cast<uintptr_t*>(ReadOffsetData(location, 3, 8));
